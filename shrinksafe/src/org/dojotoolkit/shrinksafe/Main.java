@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.io.DataOutputStream;
+import java.io.DataInputStream;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextAction;
@@ -53,7 +55,8 @@ public class Main {
 	protected static final ShellContextFactory shellContextFactory = new ShellContextFactory();
 	protected static ToolErrorReporter errorReporter;
 	protected static int exitCode = 0;
-	protected static boolean escapeUnicode = false; 
+	protected static boolean escapeUnicode = false;
+	protected static boolean server = false;
 	protected static String stripConsole = null;
 
 	static {
@@ -163,6 +166,9 @@ public class Main {
 			else if (arg.equals("-escape-unicode")) {
 				escapeUnicode = true;
 			}
+			else if (arg.equals("-server")) {
+				server = true;
+			}
 			else if (arg.equals("-stripConsole")) {
 				if (i >= (args.length-1)) {
 					usageError = getMessage("msg.shell.stripConsoleMissingArg");
@@ -193,8 +199,8 @@ public class Main {
 	}
 	
 	static void processFiles(Context cx, String[] files) throws IOException {
-		StringBuffer cout = new StringBuffer();
 		if (files.length > 0) {
+			StringBuffer cout = new StringBuffer();
 			for (int i=0; i < files.length; i++) {
 				try {
 					String source = (String)readFileOrUrl(files[i], true);
@@ -203,16 +209,33 @@ public class Main {
 					// continue processing files
 				}
 			}
+			global.getOut().println(cout);
+		} else if (server) {
+			DataInputStream input = new DataInputStream(global.getIn());
+			DataOutputStream output = new DataOutputStream(global.getOut());
+			global.getErr().println("Starting server.");
+			while (true) {
+				int length = input.readInt();
+				byte data[] = new byte[length];
+				while (length > 0)
+					length -= input.read(data, data.length - length, length);
+				// Convert to String using the default encoding
+				String source = new String(data);
+				byte result[] = Compressor.compressScript(source, 0, 1, escapeUnicode, stripConsole).getBytes();
+				output.writeInt(result.length);
+				output.write(result, 0, result.length);
+			}
 		} else {
+			StringBuffer cout = new StringBuffer();
 			byte[] data = Kit.readStream(global.getIn(), 4096);
 			// Convert to String using the default encoding
 			String source = new String(data);
 			if (source != null) {
 				cout.append(Compressor.compressScript(source, 0, 1, escapeUnicode, stripConsole));
 			}
+			global.getOut().println(cout);
 		}
 
-		global.getOut().println(cout);
 	}
 
 	private static Object readFileOrUrl(String path, boolean convertToString) throws IOException {
