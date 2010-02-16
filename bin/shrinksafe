@@ -5,7 +5,7 @@ var OS = require("os");
 var SYSTEM = require("system");
 
 var packageDir = FILE.path(module.path).dirname().dirname();
-var rhinoPath = packageDir.join("js.jar");
-var shinksafePath = packageDir.join("shrinksafe.jar");
+var rhinoPath = packageDir.join("shrinksafe/js.jar");
+var shinksafePath = packageDir.join("shrinksafe/shrinksafe.jar");
 
 OS.exit(OS.system(["java", "-cp", rhinoPath, "-jar", shinksafePath].concat(SYSTEM.args.slice(1))));
